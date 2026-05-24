@@ -12,8 +12,7 @@ services:
     image: ghcr.io/slother/intel-gpu-exporter:rolling
     container_name: intel-gpu-exporter
     restart: unless-stopped
-    cap_add:
-      - PERFMON
+    privileged: true
     ports:
       - 9922:9922
     devices:
