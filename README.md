@@ -13,11 +13,10 @@ services:
     container_name: intel-gpu-exporter
     restart: unless-stopped
     privileged: true
-    pid: host
     ports:
       - 8080:8080
-    volumes:
-      - /dev/dri/:/dev/dri/
+    devices:
+      - /dev/dri:/dev/dri
     environment:
       REFRESH_PERIOD_MS: "5000"
 ```

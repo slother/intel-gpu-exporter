@@ -62,46 +62,31 @@ igpu_rc6 = Gauge("igpu_rc6", "RC6 %")
 MAX_BUFFER_SIZE = 1_048_576  # 1 MiB
 
 
+def _engine(data, name):
+    engines = data.get("engines", {})
+    return engines.get(name + "/0") or engines.get(name) or {}
+
+
 def update(data):
-    igpu_engines_blitter_0_busy.set(
-        data.get("engines", {}).get("Blitter/0", {}).get("busy", 0.0)
-    )
-    igpu_engines_blitter_0_sema.set(
-        data.get("engines", {}).get("Blitter/0", {}).get("sema", 0.0)
-    )
-    igpu_engines_blitter_0_wait.set(
-        data.get("engines", {}).get("Blitter/0", {}).get("wait", 0.0)
-    )
+    blitter = _engine(data, "Blitter")
+    igpu_engines_blitter_0_busy.set(blitter.get("busy", 0.0))
+    igpu_engines_blitter_0_sema.set(blitter.get("sema", 0.0))
+    igpu_engines_blitter_0_wait.set(blitter.get("wait", 0.0))
 
-    igpu_engines_render_3d_0_busy.set(
-        data.get("engines", {}).get("Render/3D/0", {}).get("busy", 0.0)
-    )
-    igpu_engines_render_3d_0_sema.set(
-        data.get("engines", {}).get("Render/3D/0", {}).get("sema", 0.0)
-    )
-    igpu_engines_render_3d_0_wait.set(
-        data.get("engines", {}).get("Render/3D/0", {}).get("wait", 0.0)
-    )
+    render = _engine(data, "Render/3D")
+    igpu_engines_render_3d_0_busy.set(render.get("busy", 0.0))
+    igpu_engines_render_3d_0_sema.set(render.get("sema", 0.0))
+    igpu_engines_render_3d_0_wait.set(render.get("wait", 0.0))
 
-    igpu_engines_video_0_busy.set(
-        data.get("engines", {}).get("Video/0", {}).get("busy", 0.0)
-    )
-    igpu_engines_video_0_sema.set(
-        data.get("engines", {}).get("Video/0", {}).get("sema", 0.0)
-    )
-    igpu_engines_video_0_wait.set(
-        data.get("engines", {}).get("Video/0", {}).get("wait", 0.0)
-    )
+    video = _engine(data, "Video")
+    igpu_engines_video_0_busy.set(video.get("busy", 0.0))
+    igpu_engines_video_0_sema.set(video.get("sema", 0.0))
+    igpu_engines_video_0_wait.set(video.get("wait", 0.0))
 
-    igpu_engines_video_enhance_0_busy.set(
-        data.get("engines", {}).get("VideoEnhance/0", {}).get("busy", 0.0)
-    )
-    igpu_engines_video_enhance_0_sema.set(
-        data.get("engines", {}).get("VideoEnhance/0", {}).get("sema", 0.0)
-    )
-    igpu_engines_video_enhance_0_wait.set(
-        data.get("engines", {}).get("VideoEnhance/0", {}).get("wait", 0.0)
-    )
+    venh = _engine(data, "VideoEnhance")
+    igpu_engines_video_enhance_0_busy.set(venh.get("busy", 0.0))
+    igpu_engines_video_enhance_0_sema.set(venh.get("sema", 0.0))
+    igpu_engines_video_enhance_0_wait.set(venh.get("wait", 0.0))
 
     igpu_frequency_actual.set(data.get("frequency", {}).get("actual", 0))
     igpu_frequency_requested.set(data.get("frequency", {}).get("requested", 0))
@@ -145,17 +130,24 @@ if __name__ == "__main__":
 
     logging.info("Started intel_gpu_top with period=%s", period)
     output = ""
+    depth = 0
 
     try:
-        if os.getenv("IS_DOCKER", False):
-            for line in process.stdout:
-                line = line.decode("utf-8").strip()
-                output += line
+        for line in process.stdout:
+            line = line.decode("utf-8").strip()
 
-                if len(output) > MAX_BUFFER_SIZE:
-                    logging.warning("Output buffer exceeded max size, resetting")
-                    output = ""
+            if not line or line in ("[", "]", ","):
+                continue
 
+            output += line
+            depth += line.count("{") - line.count("}")
+
+            if len(output) > MAX_BUFFER_SIZE:
+                logging.warning("Output buffer exceeded max size, resetting")
+                output = ""
+                depth = 0
+
+            if depth == 0 and output:
                 try:
                     data = json.loads(output.strip(","))
                     logging.debug(data)
@@ -163,14 +155,6 @@ if __name__ == "__main__":
                     output = ""
                 except json.JSONDecodeError:
                     continue
-        else:
-            while process.poll() is None:
-                read = process.stdout.readline()
-                output += read.decode("utf-8")
-                logging.debug(output)
-                if read == b"},\n":
-                    update(json.loads(output[:-2]))
-                    output = ""
 
         process.kill()
         process.wait()
