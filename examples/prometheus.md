@@ -6,5 +6,5 @@ scrape_configs:
     scrape_interval: 5s ## Change this to the same value as REFRESH_PERIOD_MS (or remove this line)
     static_configs:
       - targets:
-          - "cloud.host.example.local:8080"
+          - "cloud.host.example.local:9882"
 ```
