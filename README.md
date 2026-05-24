@@ -1,19 +1,12 @@
 # intel-gpu-exporter
 
-> [!IMPORTANT]
-> I am no longer using this, and have no plans to continue support. Please consider forking if interested in using.
-
-Get metrics from Intel GPUs
+Prometheus exporter for Intel GPU metrics using `intel_gpu_top`.
 
 ## Deployment
-
-Runs on port 8080, does stuff, is hyperglued using python and intel_gpu_top
 
 ### Docker Compose
 
 ```yaml
-version: "3.8"
-
 services:
   intel-gpu-exporter:
     image: ghcr.io/slother/intel-gpu-exporter:rolling
@@ -25,7 +18,23 @@ services:
       - 8080:8080
     volumes:
       - /dev/dri/:/dev/dri/
+    environment:
+      REFRESH_PERIOD_MS: "5000"
 ```
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `REFRESH_PERIOD_MS` | `10000` | Polling interval in ms for `intel_gpu_top` |
+| `DEVICE` | (all) | Specific GPU device to monitor |
+| `DEBUG` | `false` | Set to `true`, `1`, or `yes` for debug logging |
+
+### Configuration Examples
+
+- [Prometheus scrape config](examples/prometheus.md)
+- [Grafana Alloy config](examples/alloy.river)
+- [Grafana dashboard](examples/simple-grafana-dash.json)
 
 ## Metrics
 

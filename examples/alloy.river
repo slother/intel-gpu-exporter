@@ -1,0 +1,23 @@
+prometheus.scrape "intel_gpu" {
+  targets = [{
+    __address__ = "localhost:8080",
+  }]
+  forward_to      = [prometheus.relabel.intel_gpu.receiver]
+  scrape_interval = "5s"
+  job_name        = "intel-gpu_exporter"
+}
+
+prometheus.relabel "intel_gpu" {
+  forward_to = [prometheus.remote_write.default.receiver]
+
+  rule {
+    target_label = "instance"
+    replacement  = "intel-gpu-exporter"
+  }
+}
+
+prometheus.remote_write "default" {
+  endpoint {
+    url = "http://localhost:9090/api/v1/write"
+  }
+}
