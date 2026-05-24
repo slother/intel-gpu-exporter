@@ -4,6 +4,8 @@ import subprocess
 import json
 import logging
 
+import time
+
 igpu_engines_blitter_0_busy = Gauge(
     "igpu_engines_blitter_0_busy", "Blitter 0 busy utilisation %"
 )
@@ -124,40 +126,44 @@ if __name__ == "__main__":
     if device is not None:
         cmd += ["-d", device]
 
-    process = subprocess.Popen(
-        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
+    retry_delay = 10
 
-    logging.info("Started intel_gpu_top with period=%s", period)
-    output = ""
-    depth = 0
+    while True:
+        process = subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
 
-    try:
-        for line in process.stdout:
-            line = line.decode("utf-8").strip()
+        logging.info("Started intel_gpu_top with period=%s", period)
+        output = ""
+        depth = 0
 
-            if not line or line in ("[", "]", ","):
-                continue
+        try:
+            for line in process.stdout:
+                line = line.decode("utf-8").strip()
 
-            output += line
-            depth += line.count("{") - line.count("}")
-
-            if len(output) > MAX_BUFFER_SIZE:
-                logging.warning("Output buffer exceeded max size, resetting")
-                output = ""
-                depth = 0
-
-            if depth == 0 and output:
-                try:
-                    data = json.loads(output.strip(","))
-                    logging.debug(data)
-                    update(data)
-                    output = ""
-                except json.JSONDecodeError:
+                if not line or line in ("[", "]", ","):
                     continue
 
-        process.kill()
-        process.wait()
+                output += line
+                depth += line.count("{") - line.count("}")
+
+                if len(output) > MAX_BUFFER_SIZE:
+                    logging.warning("Output buffer exceeded max size, resetting")
+                    output = ""
+                    depth = 0
+
+                if depth == 0 and output:
+                    try:
+                        data = json.loads(output.strip(","))
+                        logging.debug(data)
+                        update(data)
+                        output = ""
+                    except json.JSONDecodeError:
+                        continue
+        finally:
+            if process.poll() is None:
+                process.kill()
+                process.wait()
 
         stderr_output = process.stderr.read().decode("utf-8", errors="replace").strip()
         if process.returncode != 0:
@@ -165,9 +171,5 @@ if __name__ == "__main__":
         elif stderr_output:
             logging.warning("intel_gpu_top stderr: %s", stderr_output)
 
-    finally:
-        if process.poll() is None:
-            process.kill()
-            process.wait()
-
-    logging.info("Finished")
+        logging.info("Restarting intel_gpu_top in %ss", retry_delay)
+        time.sleep(retry_delay)
