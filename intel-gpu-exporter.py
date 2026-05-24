@@ -159,8 +159,11 @@ if __name__ == "__main__":
         process.kill()
         process.wait()
 
+        stderr_output = process.stderr.read().decode("utf-8", errors="replace").strip()
         if process.returncode != 0:
-            logging.error("intel_gpu_top exited with code %s", process.returncode)
+            logging.error("intel_gpu_top exited with code %s: %s", process.returncode, stderr_output or "(no stderr)")
+        elif stderr_output:
+            logging.warning("intel_gpu_top stderr: %s", stderr_output)
 
     finally:
         if process.poll() is None:
