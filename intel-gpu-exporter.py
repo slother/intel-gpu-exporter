@@ -108,7 +108,7 @@ if __name__ == "__main__":
     debug = logging.DEBUG if os.getenv("DEBUG", "") in ("true", "1", "yes") else logging.INFO
     logging.basicConfig(format="%(asctime)s - %(message)s", level=debug)
 
-    start_http_server(9882)
+    start_http_server(9922)
 
     try:
         period = int(os.getenv("REFRESH_PERIOD_MS", "10000"))

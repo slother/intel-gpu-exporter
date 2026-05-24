@@ -14,7 +14,7 @@ services:
     restart: unless-stopped
     privileged: true
     ports:
-      - 9882:9882
+      - 9922:9922
     devices:
       - /dev/dri:/dev/dri
     environment:

@@ -1,6 +1,6 @@
 prometheus.scrape "intel_gpu" {
   targets = [{
-    __address__ = "localhost:9882",
+    __address__ = "localhost:9922",
   }]
   forward_to      = [prometheus.relabel.intel_gpu.receiver]
   scrape_interval = "5s"
