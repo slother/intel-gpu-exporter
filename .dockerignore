@@ -1,4 +1,15 @@
+.git
+.gitignore
 .github
 tests
+examples
 Dockerfile
 README.md
+*.pyc
+__pycache__
+*.log
+*.tmp
+.env
+.env.*
+.vscode
+.idea

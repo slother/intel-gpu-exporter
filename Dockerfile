@@ -2,8 +2,7 @@ FROM docker.io/library/python:3.13-slim
 
 ENV \
     DEBCONF_NONINTERACTIVE_SEEN="true" \
-    DEBIAN_FRONTEND="noninteractive" \
-    APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE="DontWarn"
+    DEBIAN_FRONTEND="noninteractive"
 
 ENV \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -16,7 +15,8 @@ ENV \
 
 WORKDIR /app
 
-COPY . .
+COPY requirements.txt ./
+COPY intel-gpu-exporter.py ./
 
 RUN \
     apt-get update \
@@ -24,7 +24,7 @@ RUN \
     apt-get install --no-install-recommends -y \
         catatonit \
         intel-gpu-tools \
-    && pip install --requirement requirements.txt \
+    && pip install --require-hashes --requirement requirements.txt \
     && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
     && apt-get autoremove -y \
     && apt-get clean \
@@ -39,5 +39,4 @@ CMD ["/app/intel-gpu-exporter.py"]
 
 LABEL \
     org.opencontainers.image.title="intel-gpu-exporter" \
-    org.opencontainers.image.authors="Devin Buhl <devin.kray@gmail.com>" \
-    org.opencontainers.image.source="https://github.com/onedr0p/intel-gpu-exporter"
+    org.opencontainers.image.source="https://github.com/slother/intel-gpu-exporter"

@@ -16,7 +16,7 @@ version: "3.8"
 
 services:
   intel-gpu-exporter:
-    image: ghcr.io/onedr0p/intel-gpu-exporter:rolling
+    image: ghcr.io/slother/intel-gpu-exporter:rolling
     container_name: intel-gpu-exporter
     restart: unless-stopped
     privileged: true

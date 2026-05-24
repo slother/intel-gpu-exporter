@@ -1,6 +1,5 @@
 from prometheus_client import start_http_server, Gauge
 import os
-import sys
 import subprocess
 import json
 import logging
@@ -59,6 +58,8 @@ igpu_power_gpu = Gauge("igpu_power_gpu", "GPU power W")
 igpu_power_package = Gauge("igpu_power_package", "Package power W")
 
 igpu_rc6 = Gauge("igpu_rc6", "RC6 %")
+
+MAX_BUFFER_SIZE = 1_048_576  # 1 MiB
 
 
 def update(data):
@@ -119,53 +120,67 @@ def update(data):
 
 
 if __name__ == "__main__":
-    if os.getenv("DEBUG", False):
-        debug = logging.DEBUG
-    else:
-        debug = logging.INFO
+    debug = logging.DEBUG if os.getenv("DEBUG", "") in ("true", "1", "yes") else logging.INFO
     logging.basicConfig(format="%(asctime)s - %(message)s", level=debug)
 
     start_http_server(8080)
 
-    period = os.getenv("REFRESH_PERIOD_MS", 10000)
+    try:
+        period = int(os.getenv("REFRESH_PERIOD_MS", "10000"))
+    except (ValueError, TypeError):
+        period = 10000
+
+    if period <= 0:
+        period = 10000
+
     device = os.getenv("DEVICE")
 
+    cmd = ["intel_gpu_top", "-J", "-s", str(period)]
     if device is not None:
-        cmd = "intel_gpu_top -J -s {} -d {}".format(int(period), device)
-    else:
-        cmd = "intel_gpu_top -J -s {}".format(int(period))
+        cmd += ["-d", device]
 
     process = subprocess.Popen(
-        cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
 
-    logging.info("Started " + cmd)
+    logging.info("Started intel_gpu_top with period=%s", period)
     output = ""
 
-    if os.getenv("IS_DOCKER", False):
-        for line in process.stdout:
-            line = line.decode("utf-8").strip()
-            output += line
+    try:
+        if os.getenv("IS_DOCKER", False):
+            for line in process.stdout:
+                line = line.decode("utf-8").strip()
+                output += line
 
-            try:
-                data = json.loads(output.strip(","))
-                logging.debug(data)
-                update(data)
-                output = ""
-            except json.JSONDecodeError:
-                continue
-    else:
-        while process.poll() is None:
-            read = process.stdout.readline()
-            output += read.decode("utf-8")
-            logging.debug(output)
-            if read == b"},\n":
-                update(json.loads(output[:-2]))
-                output = ""
+                if len(output) > MAX_BUFFER_SIZE:
+                    logging.warning("Output buffer exceeded max size, resetting")
+                    output = ""
 
-    process.kill()
+                try:
+                    data = json.loads(output.strip(","))
+                    logging.debug(data)
+                    update(data)
+                    output = ""
+                except json.JSONDecodeError:
+                    continue
+        else:
+            while process.poll() is None:
+                read = process.stdout.readline()
+                output += read.decode("utf-8")
+                logging.debug(output)
+                if read == b"},\n":
+                    update(json.loads(output[:-2]))
+                    output = ""
 
-    if process.returncode != 0:
-        logging.error("Error: " + process.stderr.read().decode("utf-8"))
+        process.kill()
+        process.wait()
+
+        if process.returncode != 0:
+            logging.error("intel_gpu_top exited with code %s", process.returncode)
+
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait()
 
     logging.info("Finished")
